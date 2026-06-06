@@ -1,9 +1,14 @@
 package 지뢰게임;
 
 import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Font;
+import java.awt.Graphics;
 import java.awt.GridLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.util.Random;
 
 import javax.swing.JButton;
@@ -66,21 +71,6 @@ public class MineSweeper extends JFrame {
 					for (int j = 0; j < size; j++) {
 						cells[i][j] = new buttonCell(i, j);
 						cp.add(cells[i][j]);
-						
-						//모든 셀 이벤트
-						cells[i][j].addActionListener(new ActionListener() {
-							
-							@Override
-							public void actionPerformed(ActionEvent e) {
-								// TODO Auto-generated method stub
-								int r,c;
-								buttonCell jb = (buttonCell)e.getSource();
-								r = jb.r;
-								c = jb.c;
-								
-								JOptionPane.showMessageDialog(null, "[" + (r+1) + "행, " + (c+1) + "열] " + "클릭");
-							}
-						});
 					}
 				}
 				cp.repaint();
@@ -90,6 +80,7 @@ public class MineSweeper extends JFrame {
 				bomCnt = (int)(size*size*0.1);
 				boolean[] nums = new boolean[size*size];
 				for (int i = 0; i < bomCnt; i++) {
+					// [수정] 줄 끝 유령 공백 제거
 					nums[i] = true; 
 				}
 				
@@ -107,9 +98,9 @@ public class MineSweeper extends JFrame {
 				
 				for (int i = 0; i < size*size; i++) {
 					cells[i/size][i%size].isBomb = nums[i];
-					if (nums[i] == true) {
-						cells[i/size][i%size].setText("지뢰");
-					}
+//					if (nums[i] == true) {
+//						cells[i/size][i%size].setText("\u004d"); //체크용
+//					}
 				}
 				
 				
@@ -130,10 +121,76 @@ public class MineSweeper extends JFrame {
 	class buttonCell extends JButton {
 		int r,c;
 		boolean isBomb; 
+		boolean isClicked = false;
+		boolean isRightClicked = false;
+		boolean isOval = false;
 		
 		public buttonCell(int i, int j) { //버튼에 대한 정보를 입력받는 생성자
 			r = i; 
 			c = j;
+			
+			this.addMouseListener(new MouseAdapter() {
+				@Override
+				public void mousePressed(MouseEvent e) {
+					super.mousePressed(e);
+					
+					// 이미 클릭되어 열린 셀이거나 게임 오버 상태면 무시
+					if (isClicked) return;
+					
+					if (e.getButton() == MouseEvent.BUTTON1) { // 좌클릭
+						if (isRightClicked) return; 
+						
+						isClicked = true;
+						repaint();
+						
+						if (isBomb) {
+							JOptionPane.showMessageDialog(null, "지뢰를 밟으셨습니다. 게임 종료!");
+							System.exit(0);
+						}
+					}
+					else if (e.getButton() == MouseEvent.BUTTON3) { // 우클릭
+						isRightClicked = !isRightClicked;
+						repaint();
+					}
+				}
+			});
+		}
+		
+		
+		@Override
+		protected void paintComponent(Graphics g) {
+			super.paintComponent(g);
+			
+			if (isClicked == false && isRightClicked == false) {
+				return;
+			}
+			
+			// 오른쪽 버튼을 누르면 깃발을 꽂는다. (회수하면 알아서 안 그려짐)
+			if (isRightClicked) {
+				this.setBorderPainted(true);
+				this.setContentAreaFilled(true);
+				this.setEnabled(true);
+				
+				g.setColor(Color.RED);
+				g.setFont(new Font("Wingdings", 0, 30));
+				g.drawString("\uf50d", 15, 35);
+			}
+			
+			// 폭탄이 터졌을 경우 (좌클릭 시 작동)
+			if (isClicked == true && isBomb == true) {
+				
+				this.setBorderPainted(false);
+				this.setContentAreaFilled(false);
+				this.setEnabled(false);
+				isOval = true;
+				
+				g.setColor(Color.BLACK);
+				g.setFont(new Font("Wingdings", 0, 30));
+				g.drawString("\uf04d", 15, 35);
+				
+			}
+			
+			
 		}
 	}
 

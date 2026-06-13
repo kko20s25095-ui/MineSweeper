@@ -1,4 +1,4 @@
-package 지뢰찾기;
+package 지뢰게임;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -9,6 +9,8 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.util.LinkedList;
+import java.util.Queue;
 import java.util.Random;
 
 import javax.swing.JButton;
@@ -28,6 +30,42 @@ class MineSweeper extends JFrame {
 	JPanel cp;
 	
 	boolean isOver;
+	
+	// ★ 알고리즘 반영: 큐(Queue)와 연결리스트(LinkedList)를 활용한 주변 빈칸 BFS 자동 확장 함수
+	public void openCellsBFS(int startR, int startC) {
+		Queue<int[]> queue = new LinkedList<>();
+		queue.add(new int[]{startR, startC});
+		
+		while (!queue.isEmpty()) {
+			int[] curr = queue.poll();
+			int r = curr[0];
+			int c = curr[1];
+			
+			int[] dr = {-1, -1, -1, 0, 0, 1, 1, 1};
+			int[] dc = {-1, 0, 1, -1, 1, -1, 0, 1};
+			
+			for (int d = 0; d < 8; d++) {
+				int nr = r + dr[d];
+				int nc = c + dc[d];
+				
+				if (nr >= 0 && nr < size && nc >= 0 && nc < size) {
+					ButtonCell neighbor = cells[nr][nc];
+					
+					if (!neighbor.isClicked && !neighbor.isRightClicked && !neighbor.isBomb) {
+						neighbor.isClicked = true;
+						neighbor.setBorderPainted(false);
+						neighbor.setContentAreaFilled(false);
+						neighbor.setEnabled(false);
+						
+						if (neighbor.surBomCnt == 0) {
+							queue.add(new int[]{nr, nc});
+						}
+					}
+				}
+			}
+		}
+		cp.repaint();
+	}
 	
 	public MineSweeper() {
 		setTitle("\uC9C0\uB8B0\uAC8C\uC784");
@@ -84,55 +122,40 @@ class MineSweeper extends JFrame {
 					c=nums[a]; nums[a]=nums[b]; nums[b]=c;
 				}
 			
-				// 1차적으로 모든 셀에 지뢰 상태를 먼저 주입합니다.
 				for (int i = 0; i < size*size; i++) {
 					cells[i/size][i%size].isBomb = nums[i];
 				}
 				
-				// 검증 및 수정 완료: 개별 try-catch 구조를 통해 8방향을 독립적으로 완벽히 카운트한다.
+				//셀마다 주변 8방의 지뢰 갯수 카운트 
 				for (int i = 0; i < size*size; i++) {
 					int row = i/size , col = i % size;
 					
 					// 내가 지뢰가 아닐 경우에만 주변 지뢰 개수를 센다.
 					if (cells[row][col].isBomb == false) { 
 						
-						// 1. 북서 (위 왼쪽)
 						try {
+							// 1. 북서 (위 왼쪽)
 							if (row - 1 >= 0 && col - 1 >= 0 && cells[row-1][col-1].isBomb) cells[row][col].surBomCnt++;
-						} catch (Exception ex) {}
 
-						// 2. 북 (위)
-						try {
+							// 2. 북 (위)
 							if (row - 1 >= 0 && cells[row-1][col].isBomb) cells[row][col].surBomCnt++;
-						} catch (Exception ex) {}
 
-						// 3. 북동 (위 오른쪽)
-						try {
+							// 3. 북동 (위 오른쪽)
 							if (row - 1 >= 0 && col + 1 < size && cells[row-1][col+1].isBomb) cells[row][col].surBomCnt++;
-						} catch (Exception ex) {}
 
-						// 4. 서 (왼쪽)
-						try {
+							// 4. 서 (왼쪽)
 							if (col - 1 >= 0 && cells[row][col-1].isBomb) cells[row][col].surBomCnt++;
-						} catch (Exception ex) {}
 
-						// 5. 동 (오른쪽)
-						try {
+							// 5. 동 (오른쪽)
 							if (col + 1 < size && cells[row][col+1].isBomb) cells[row][col].surBomCnt++;
-						} catch (Exception ex) {}
 
-						// 6. 남서 (아래 왼쪽)
-						try {
+							// 6. 남서 (아래 왼쪽)
 							if (row + 1 < size && col - 1 >= 0 && cells[row+1][col-1].isBomb) cells[row][col].surBomCnt++;
-						} catch (Exception ex) {}
 
-						// 7. 남 (아래)
-						try {
+							// 7. 남 (아래)
 							if (row + 1 < size && cells[row+1][col].isBomb) cells[row][col].surBomCnt++;
-						} catch (Exception ex) {}
 
-						// 8. 남동 (아래 오른쪽)
-						try {
+							// 8. 남동 (아래 오른쪽)
 							if (row + 1 < size && col + 1 < size && cells[row+1][col+1].isBomb) cells[row][col].surBomCnt++;
 						} catch (Exception ex) {}
 					}
@@ -158,27 +181,40 @@ class MineSweeper extends JFrame {
 			this.addMouseListener(new MouseAdapter() {
 				@Override
 				public void mousePressed(MouseEvent e) {
-					// 깃발(우클릭)이 꽂혀있지 않고, 이미 클릭된 상태가 아닐 때만 좌클릭 작동
 					if(e.getButton()==MouseEvent.BUTTON1 && !isRightClicked && !isClicked) {
 						isClicked = true;
 						
-						// 무한 루프 방지를 위해 paintComponent에 있던 버튼 상태 변경 코드를 이쪽으로 이동
 						setBorderPainted(false);
 						setContentAreaFilled(false);
 						setEnabled(false);
 						
+						// ★ 알고리즘 반영: 지뢰 클릭 시 2차원 배열 선형 탐색을 돌며 전체 칸 일제히 오픈
 						if (isBomb == true) { 
-							repaint(); // 지뢰 아이콘을 그리도록 즉시 리페인트 호출
+							for (int r = 0; r < size; r++) {
+								for (int c = 0; c < size; c++) {
+									MineSweeper.this.cells[r][c].isClicked = true;
+									MineSweeper.this.cells[r][c].setBorderPainted(false);
+									MineSweeper.this.cells[r][c].setContentAreaFilled(false);
+									MineSweeper.this.cells[r][c].setEnabled(false);
+								}
+							}
+							
+							MineSweeper.this.cp.repaint(); 
+							
 							JOptionPane.showMessageDialog(null, "지뢰를 밟았어요. 게임 끝!");
 							isOver = true;
+							MineSweeper.this.dispose(); 
 							return;
+						}
+						// ★ 알고리즘 반영: 클릭한 칸의 주변 지뢰가 0개인 경우 BFS 탐색 연쇄 확장 가동
+						else if (surBomCnt == 0) {
+							MineSweeper.this.openCellsBFS(r, c);
 						}
 					}
 					else if(e.getButton()==MouseEvent.BUTTON3) {
 						if(!isClicked) {
 							isRightClicked = !isRightClicked;
 							
-							// 우클릭 상태에 따른 버튼 속성을 여기서 한 번만 제어 (무한 루프 방지)
 							if(isRightClicked) {
 								setBorderPainted(true);
 								setContentAreaFilled(true);
@@ -204,7 +240,7 @@ class MineSweeper extends JFrame {
 				g.drawString("\uf050", 15, 35);
 			} 
 			
-			// ★ 수정: 지뢰가 없는 칸을 클릭했을 때 주변 지뢰 개수가 1개 이상이면 파란색 숫자로 선명하게 그림
+			//클릭함. 지뢰가 없음. (상태 변경 코드 제거, 단순 그리기 영역으로 격하)
 			if(isClicked==true && isBomb==false) {
 				if (surBomCnt > 0) {
 					g.setColor(Color.BLUE);
